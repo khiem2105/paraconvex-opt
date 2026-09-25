@@ -1,0 +1,82 @@
+[project]
+name = "paraconvex"
+version = "0.1.0"
+description = "Stochastic model-based methods for minimizing paraconvex functions: numerical experiments"
+readme = "README.md"
+authors = [
+    { name = "khiem2105", email = "khiem2105.1@gmail.com" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "numpy>=1.26",
+    "scipy>=1.13",
+    "matplotlib>=3.8",
+    "pandas>=2.2",
+]
+
+# ---------------------------------------------------------------------------
+# PyTorch build selection.
+#
+# `cpu` and `cu126` are mutually exclusive dependency-groups: the laptop uses
+# `cpu`, a GPU cluster uses `cu126`.  Listing them under [tool.uv] conflicts
+# makes uv record *both* resolutions in a single uv.lock, so the same committed
+# lock file reproduces the environment on either machine.
+#
+#     uv sync                                    # local: dev + cpu (defaults)
+#     uv sync --no-group cpu --group cu126       # GPU cluster
+#
+# Groups rather than optional-dependencies on purpose: extras are published
+# package metadata describing what a *consumer* of `paraconvex` may request,
+# whereas which torch build to install is purely a local environment concern.
+# Groups (PEP 735) never ship in a wheel, and only groups support
+# `default-groups` -- with extras, a bare `uv sync` silently uninstalls torch.
+#
+# Why cu126 and not a newer CUDA: as of 2026-08 the cu128 index is stale (tops
+# out at torch 2.11.0) while cu126/cu129/cu130 all carry 2.13.0.  Of those,
+# cu126 needs the oldest NVIDIA driver (>=525), so it maximises the chance of
+# running unmodified on a cluster while keeping the *same* torch version as the
+# CPU build -- version parity across machines matters for reproducing figures.
+# Move to cu129/cu130 only if a cluster GPU is new enough to require it.
+# ---------------------------------------------------------------------------
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+    "ruff>=0.6",
+]
+cpu = ["torch>=2.6"]
+cu126 = ["torch>=2.6"]
+
+[tool.uv]
+default-groups = ["dev", "cpu"]
+conflicts = [
+    [{ group = "cpu" }, { group = "cu126" }],
+]
+
+[tool.uv.sources]
+torch = [
+    { index = "pytorch-cpu", group = "cpu" },
+    { index = "pytorch-cu126", group = "cu126" },
+]
+
+# `explicit = true` keeps these indexes from being consulted for every package;
+# they are used only for distributions routed here via [tool.uv.sources].
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[[tool.uv.index]]
+name = "pytorch-cu126"
+url = "https://download.pytorch.org/whl/cu126"
+explicit = true
+
+[build-system]
+requires = ["uv_build>=0.8.17,<0.9.0"]
+build-backend = "uv_build"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+src = ["src", "experiments", "tests"]
